@@ -1,0 +1,67 @@
+{
+  "name": "privote-backend",
+  "version": "1.0.0",
+  "description": "Confidential DAO voting backend powered by Zama FHEVM",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "NODE_ENV=test mocha 'src/tests/**/*.test.js' --timeout 10000 --exit",
+    "test:integration": "NODE_ENV=test RELAYER_MOCK=true mocha 'src/tests/integration/**/*.test.js' --timeout 15000 --exit",
+    "test:unit": "NODE_ENV=test mocha 'src/tests/unit/**/*.test.js' --timeout 5000 --exit",
+    "test:coverage": "nyc npm test",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "compile": "npx hardhat compile",
+    "deploy:local": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network sepolia",
+    "worker": "node src/jobs/worker.js",
+    "migrate": "node src/migrations/run.js",
+    "seed": "node scripts/seed.js"
+  },
+  "keywords": [
+    "dao",
+    "voting",
+    "fhe",
+    "zama",
+    "fhevm",
+    "privacy",
+    "blockchain"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@zama-fhe/relayer-sdk": "^0.9.0",
+    "bcrypt": "^5.1.1",
+    "bullmq": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.9.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.3",
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "chai": "^4.3.10",
+    "eslint": "^8.56.0",
+    "hardhat": "^2.19.4",
+    "mocha": "^10.2.0",
+    "nodemon": "^3.0.2",
+    "nyc": "^15.1.0",
+    "sinon": "^17.0.1",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

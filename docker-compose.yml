@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: privote-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: privote
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - privote-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: privote-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - privote-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: privote-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/privote
+      REDIS_URL: redis://redis:6379
+    ports:
+      - '3000:3000'
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    networks:
+      - privote-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: privote-worker
+    restart: unless-stopped
+    command: npm run worker
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/privote
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    networks:
+      - privote-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  privote-network:
+    driver: bridge
