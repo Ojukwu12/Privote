@@ -1,0 +1,88 @@
+{
+  "buildCommand": "npm install && npm run compile",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "default": "production"
+    },
+    "PORT": {
+      "description": "Server port",
+      "default": "3000"
+    },
+    "LOG_LEVEL": {
+      "description": "Logging level (debug, info, warn, error)",
+      "default": "info"
+    },
+    "MONGO_URI": {
+      "description": "MongoDB connection string"
+    },
+    "REDIS_HOST": {
+      "description": "Redis hostname"
+    },
+    "REDIS_PORT": {
+      "description": "Redis port",
+      "default": "6379"
+    },
+    "REDIS_PASSWORD": {
+      "description": "Redis password (optional)"
+    },
+    "JWT_SECRET": {
+      "description": "Secret for signing JWT tokens (min 32 chars)"
+    },
+    "JWT_EXPIRES_IN": {
+      "description": "JWT expiration time",
+      "default": "7d"
+    },
+    "PROJECT_PRIVATE_KEY": {
+      "description": "Project wallet private key (0x...)"
+    },
+    "RELAYER_URL": {
+      "description": "Zama Relayer URL",
+      "default": "https://relayer.testnet.zama.org"
+    },
+    "RPC_URL": {
+      "description": "Blockchain RPC URL",
+      "default": "https://rpc.sepolia.org"
+    },
+    "CHAIN_ID": {
+      "description": "Blockchain chain ID",
+      "default": "11155111"
+    },
+    "GATEWAY_CHAIN_ID": {
+      "description": "Zama Gateway chain ID",
+      "default": "10901"
+    },
+    "ACL_CONTRACT_ADDRESS": {
+      "description": "Zama ACL contract address",
+      "default": "0xC1820b6Eb60f448E6c44d3A8f36EC6D5fCc76754"
+    },
+    "KMS_CONTRACT_ADDRESS": {
+      "description": "Zama KMS contract address",
+      "default": "0x208De73316E44722e16f6dDFF40881A3e4F86104"
+    },
+    "ZAMA_GATEWAY_ADDRESS": {
+      "description": "Zama Gateway address",
+      "default": "0x6Fdc11e82f9dB00DcdC01Ab678A1B3c34D1eE089"
+    },
+    "VOTING_CONTRACT_ADDRESS": {
+      "description": "Your deployed PrivoteVoting contract address (0x...)"
+    },
+    "CORS_ORIGIN": {
+      "description": "Allowed CORS origin for frontend"
+    },
+    "RATE_LIMIT_WINDOW_MS": {
+      "description": "Rate limit window in milliseconds",
+      "default": "900000"
+    },
+    "RATE_LIMIT_MAX_REQUESTS": {
+      "description": "Max requests per rate limit window",
+      "default": "100"
+    },
+    "RELAYER_MOCK": {
+      "description": "Use mock FHE shim instead of relayer",
+      "default": "false"
+    }
+  }
+}
