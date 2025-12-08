@@ -38,8 +38,7 @@ const userSchema = new mongoose.Schema({
   },
   publicKey: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   encryptedPrivateKey: {
     iv: {
@@ -82,10 +81,6 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Index for efficient lookups
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
 
 // Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function() {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * Privote Voting Contract
@@ -21,7 +21,7 @@ import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
  * - ACL-based access control
  */
 
-contract PrivoteVoting is ZamaEthereumConfig {
+contract PrivoteVoting is SepoliaConfig {
     // Proposal struct
     struct Proposal {
         string title;
@@ -165,7 +165,8 @@ contract PrivoteVoting is ZamaEthereumConfig {
         // This is a simplified implementation
         // In production, you would iterate through voters or use a different pattern
         // For now, we set tally to voteCount as placeholder
-        tally = FHE.asEuint64(proposal.voteCount);
+        require(proposal.voteCount <= type(uint64).max, "Vote count overflow");
+        tally = FHE.asEuint64(uint64(proposal.voteCount));
 
         proposal.encryptedTally = tally;
         proposal.tallyComputed = true;

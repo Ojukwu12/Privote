@@ -20,14 +20,12 @@ const voteSchema = new mongoose.Schema({
   proposalId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Proposal',
-    required: true,
-    index: true
+    required: true
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
   },
   encryptedVote: {
     type: String,
@@ -70,6 +68,5 @@ const voteSchema = new mongoose.Schema({
 // Unique composite index: one vote per user per proposal
 voteSchema.index({ proposalId: 1, userId: 1 }, { unique: true });
 voteSchema.index({ createdAt: 1 });
-voteSchema.index({ idempotencyKey: 1 }, { sparse: true });
 
 module.exports = mongoose.model('Vote', voteSchema);

@@ -33,6 +33,7 @@ typechain-types/
 artifacts/
 cache/
 deployments/
+*.tgz
 
 # IDE
 .vscode/

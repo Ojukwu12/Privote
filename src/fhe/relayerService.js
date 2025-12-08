@@ -1,4 +1,5 @@
-const { createInstance } = require('@zama-fhe/relayer-sdk');
+// Use the CommonJS entrypoint from relayer-sdk exports
+const { createInstance } = require('@zama-fhe/relayer-sdk/node');
 const { ethers } = require('ethers');
 const config = require('../config');
 const logger = require('../utils/logger');
