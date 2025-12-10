@@ -40,6 +40,9 @@ router.get(
   voteController.getDecryptedTally
 );
 
+// POST /vote/decrypt/:proposalId - Decrypt tally using user's private key
+// Server-side user decrypt route removed. Client-side decryption is recommended.
+
 // GET /vote/my-votes - Get user's vote history
 router.get(
   '/my-votes',

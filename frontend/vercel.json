@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@privote_api_url",
+    "NEXT_PUBLIC_CHAIN_ID": "@privote_chain_id",
+    "NEXT_PUBLIC_GATEWAY_CHAIN_ID": "@privote_gateway_chain_id",
+    "NEXT_PUBLIC_RELAYER_URL": "@privote_relayer_url",
+    "NEXT_PUBLIC_GATEWAY_URL": "@privote_gateway_url"
+  }
+}

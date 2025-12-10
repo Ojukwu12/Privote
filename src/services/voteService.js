@@ -1,4 +1,4 @@
-const { Vote, Proposal, AuditLog } = require('../models');
+const { Vote, Proposal, AuditLog, User } = require('../models');
 const logger = require('../utils/logger');
 const CustomError = require('../utils/CustomError');
 const relayerService = require('../fhe/relayerService');
@@ -128,22 +128,42 @@ class VoteService {
         throw new Error('VOTING_CONTRACT_ADDRESS not set');
       }
 
-      // Create encrypted input
-      const wallet = relayerService.getProjectWallet();
-      const userAddress = wallet.address;
+      // If the client supplied ciphertext handles (stringified array), use them.
+      // Otherwise, fall back to creating an encrypted input on the server (mock).
+      let handles = null;
+      if (encryptedVote) {
+        try {
+          const parsed = JSON.parse(encryptedVote);
+          if (Array.isArray(parsed)) {
+            handles = parsed;
+          }
+        } catch (e) {
+          // not JSON - ignore and continue to server-side creation
+          handles = null;
+        }
+      }
 
-      const inputBuffer = relayerService.createEncryptedInput(
-        contractAddress,
-        userAddress
-      );
+      if (!handles) {
+        // Create encrypted input server-side (fallback/mock)
+        const wallet = relayerService.getProjectWallet();
+        const userAddress = wallet.address;
 
-      // Add encrypted vote value (assuming it's a uint64 for simplicity)
-      // In production, parse encryptedVote format and add appropriately
-      inputBuffer.add64(BigInt(1)); // Placeholder
+        const inputBuffer = relayerService.createEncryptedInput(
+          contractAddress,
+          userAddress
+        );
 
-      const encrypted = await relayerService.encryptInput(inputBuffer);
+        // Add encrypted vote value (assuming it's a uint64 for simplicity)
+        inputBuffer.add64(BigInt(1)); // Placeholder
 
-      // TODO: Call contract's submitVote function with encrypted.handles and inputProof
+        const encrypted = await relayerService.encryptInput(inputBuffer);
+        handles = encrypted.handles;
+      }
+
+      // Now we have handles and inputProof (either client-supplied or server-generated)
+      const proofToUse = inputProof || '';
+
+      // TODO: Call contract's submitVote function with handles and proofToUse
       // For now, simulate transaction
       const txHash = `0x${Math.random().toString(16).substring(2)}`;
 
@@ -294,6 +314,20 @@ class VoteService {
   }
 
   /**
+   * Decrypt tally using the user's private key.
+   * This will call the relayer's userDecrypt path which performs the
+   * user-specific decryption workflow.
+   *
+   * WARNING: this method expects the caller to supply the user's private key.
+   * In production you should avoid sending private keys to the server and
+   * instead perform decryption client-side. This endpoint exists to support
+   * environments where client-side SDKs are not available.
+   */
+  // Client-side decryption is preferred. Server-side user-decrypt endpoint
+  // was removed for security reasons. Use relayer/public decrypt for public
+  // tallies and client-side userDecrypt flow for private decryption.
+
+  /**
    * Check if user has voted on a proposal
    *
    * @param {string} proposalId
@@ -307,3 +341,4 @@ class VoteService {
 }
 
 module.exports = new VoteService();
+
