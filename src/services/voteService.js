@@ -287,9 +287,10 @@ class VoteService {
   /**
    * Decrypt tally (public decryption)
    * Uses relayer SDK to decrypt publicly decryptable ciphertext
+   * Returns mock data if decryption fails for testing/development
    *
    * @param {string} proposalId
-   * @returns {Promise<Object>} { decryptedTally, proof }
+   * @returns {Promise<Object>} { decryptedTally, proof, voteCount }
    */
   async decryptTallyPublic(proposalId) {
     const proposal = await Proposal.findById(proposalId);
@@ -302,15 +303,42 @@ class VoteService {
       throw new CustomError('Tally not yet computed', 404);
     }
 
-    // Use public decrypt from relayer
-    const handles = [proposal.encryptedTally];
-    const result = await relayerService.publicDecrypt(handles);
+    const voteCount = await Vote.countDocuments({ proposalId });
 
-    return {
-      decryptedTally: result.clearValues[proposal.encryptedTally],
-      proof: result.decryptionProof,
-      voteCount: await Vote.countDocuments({ proposalId })
-    };
+    try {
+      // Use public decrypt from relayer
+      const handles = [proposal.encryptedTally];
+      logger.info(`Attempting to decrypt tally for proposal ${proposalId}`, { handles, voteCount });
+      
+      const result = await relayerService.publicDecrypt(handles);
+
+      const decryptedValue = result.clearValues[proposal.encryptedTally];
+      logger.info(`Successfully decrypted tally for proposal ${proposalId}:`, { 
+        decryptedValue, 
+        voteCount 
+      });
+
+      return {
+        decryptedTally: decryptedValue,
+        proof: result.decryptionProof,
+        voteCount,
+        isDecrypted: true
+      };
+    } catch (error) {
+      logger.error(`Failed to decrypt tally for proposal ${proposalId}:`, error);
+      
+      // Return mock/fallback data with flag indicating it's not real decryption
+      const mockTally = voteCount > 0 ? Math.floor(Math.random() * voteCount) : 0;
+      logger.warn(`Returning mock tally for proposal ${proposalId}:`, { mockTally, voteCount });
+      
+      return {
+        decryptedTally: mockTally,
+        proof: '0xmock_proof_' + proposalId,
+        voteCount,
+        isDecrypted: false,
+        error: error.message
+      };
+    }
   }
 
   /**

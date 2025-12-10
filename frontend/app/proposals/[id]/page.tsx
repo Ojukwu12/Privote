@@ -24,6 +24,7 @@ export default function ProposalDetailPage() {
   const [error, setError] = useState<ApiErrorClient | null>(null);
   const [encryptedTally, setEncryptedTally] = useState<string | null>(null);
   const [decryptedTally, setDecryptedTally] = useState<string | null>(null);
+  const [decryptedTallyData, setDecryptedTallyData] = useState<any>(null);
   const [decryptedLocal, setDecryptedLocal] = useState<any>(null);
   const [localPrivateKey, setLocalPrivateKey] = useState<string | null>(null);
 
@@ -88,7 +89,8 @@ export default function ProposalDetailPage() {
   const handleFetchDecryptedTally = async () => {
     try {
       const res = await ApiClient.getDecryptedTally(proposalId);
-      setDecryptedTally(JSON.stringify(res.data));
+      setDecryptedTallyData(res.data);
+      setDecryptedTally(JSON.stringify(res.data, null, 2));
     } catch (err) {
       const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
       setError(apiErr);
@@ -179,8 +181,14 @@ export default function ProposalDetailPage() {
             </div>
           )}
           {decryptedTally && (
-            <div className="text-xs text-gray-700 break-all pt-3">
-              <span className="font-semibold">Decrypted tally (public):</span> {decryptedTally}
+            <div className="text-xs text-gray-700 break-all pt-3 border-l-4 border-orange-500 pl-3 bg-orange-50 py-2">
+              <span className="font-semibold">Decrypted tally (public):</span> 
+              {decryptedTallyData?.isDecrypted === false && (
+                <span className="ml-2 px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-bold">
+                  ⚠️ MOCK DATA - Relayer unavailable
+                </span>
+              )}
+              <pre className="whitespace-pre-wrap mt-2 text-xs">{decryptedTally}</pre>
             </div>
           )}
           {decryptedLocal && (

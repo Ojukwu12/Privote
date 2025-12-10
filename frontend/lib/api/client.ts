@@ -45,11 +45,21 @@ export class ApiClient {
       headers,
     });
 
-    const data = await response.json();
+    let data: any = undefined;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // Response is not JSON (e.g. empty body or plain text); fall back to text
+      try {
+        data = await response.text();
+      } catch (e2) {
+        data = undefined;
+      }
+    }
 
     if (!response.ok) {
       // Backend may return { message, metadata } or { error, metadata }
-      const errMsg = (data && (data.error || data.message)) || 'Unknown error';
+      const errMsg = (data && (data.error || data.message)) || (typeof data === 'string' ? data : 'Unknown error');
       const errMetadata = (data && (data.metadata || data.meta)) || undefined;
       // Log detailed error information for debugging
       console.error(`API Error [${response.status}] ${endpoint}:`, {
@@ -285,6 +295,15 @@ export class ApiErrorClient extends Error {
   }
 
   getUserFriendlyMessage(): string {
+    // If server provided validation errors, surface them directly
+    if (this.metadata && Array.isArray(this.metadata.errors) && this.metadata.errors.length > 0) {
+      try {
+        return this.metadata.errors.join('; ');
+      } catch (e) {
+        // fallthrough to the switch below
+      }
+    }
+
     switch (this.statusCode) {
       case 400:
         return 'Invalid request. Please check your input.';
