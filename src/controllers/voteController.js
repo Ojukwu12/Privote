@@ -113,6 +113,8 @@ const getEncryptedTally = asyncHandler(async (req, res) => {
   });
 });
 
+// Server-side user decrypt endpoint removed for security; use client-side decryption.
+
 /**
  * GET /vote/decrypted-tally/:proposalId
  * Public decryption of tally (if made publicly decryptable)

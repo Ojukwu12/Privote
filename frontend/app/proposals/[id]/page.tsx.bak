@@ -1,0 +1,140 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { VoteForm } from '@/components/pages/VoteForm';
+import { ApiClient, ApiErrorClient } from '@/lib/api/client';
+import { Proposal } from '@/lib/types';
+import { useAuth } from '@/lib/context/AuthContext';
+
+export default function ProposalDetailPage() {
+  const params = useParams();
+  const proposalId = params?.id as string;
+  const { token, isAuthenticated } = useAuth();
+
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<ApiErrorClient | null>(null);
+  const [encryptedTally, setEncryptedTally] = useState<string | null>(null);
+  const [decryptedTally, setDecryptedTally] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProposal = async () => {
+      if (!proposalId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await ApiClient.getProposal(proposalId, token || undefined);
+        setProposal(res.data.proposal as any);
+      } catch (err) {
+        const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
+        setError(apiErr);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProposal();
+  }, [proposalId, token]);
+
+  const handleFetchEncryptedTally = async () => {
+    try {
+      const res = await ApiClient.getEncryptedTally(proposalId, token || undefined);
+      setEncryptedTally(res.data.encryptedTally);
+    } catch (err) {
+      const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
+      setError(apiErr);
+    }
+  };
+
+  const handleFetchDecryptedTally = async () => {
+    try {
+      const res = await ApiClient.getDecryptedTally(proposalId);
+      setDecryptedTally(JSON.stringify(res.data));
+    } catch (err) {
+      const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
+      setError(apiErr);
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <Alert type="error" message={error.getUserFriendlyMessage()} />;
+  if (!proposal) return <Alert type="info" message="Proposal not found" />;
+
+  const isClosed = proposal.closed;
+  const now = new Date();
+  const startTime = new Date(proposal.startTime);
+  const endTime = new Date(proposal.endTime);
+  const hasStarted = now >= startTime;
+  const hasEnded = now >= endTime;
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>{proposal.title}</CardTitle>
+          <CardDescription>{proposal.description}</CardDescription>
+        </CardHeader>
+        <div className="space-y-2 text-sm text-gray-700">
+          <div className="flex justify-between"><span>Starts</span><span>{new Date(proposal.startTime).toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>Ends</span><span>{new Date(proposal.endTime).toLocaleString()}</span></div>
+          <div className="flex justify-between"><span>Status</span><span>{isClosed ? 'Closed' : 'Open'}</span></div>
+          <div className="flex justify-between"><span>Votes</span><span>{proposal.voteCount}</span></div>
+          <div className="flex justify-between"><span>Required role</span><span>{proposal.requiredRole}</span></div>
+        </div>
+      </Card>
+
+      {isAuthenticated && !isClosed && hasStarted && !hasEnded && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Submit encrypted vote</CardTitle>
+            <CardDescription>Provide your FHE ciphertext and proof. The backend never sees plaintext.</CardDescription>
+          </CardHeader>
+          <VoteForm proposalId={proposalId} />
+        </Card>
+      )}
+
+      {!hasStarted && (
+        <Alert type="info" message={`Voting starts on ${startTime.toLocaleString()}`} />
+      )}
+
+      {hasEnded && !isClosed && (
+        <Alert type="info" message="This proposal has ended but has not been closed yet. Awaiting admin action." />
+      )}
+
+      {isClosed && (
+        <Alert type="success" message="This proposal has been closed. Tallying is in progress or complete." />
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tally</CardTitle>
+          <CardDescription>Encrypted tally is available after closing. Public decryption may be exposed if allowed.</CardDescription>
+        </CardHeader>
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={handleFetchEncryptedTally}>
+              Get encrypted tally
+            </Button>
+            <Button variant="ghost" onClick={handleFetchDecryptedTally}>
+              Get decrypted tally (public)
+            </Button>
+          </div>
+          {encryptedTally && (
+            <div className="text-xs text-gray-700 break-all">
+              <span className="font-semibold">Encrypted tally:</span> {encryptedTally}
+            </div>
+          )}
+          {decryptedTally && (
+            <div className="text-xs text-gray-700 break-all">
+              <span className="font-semibold">Decrypted tally:</span> {decryptedTally}
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
