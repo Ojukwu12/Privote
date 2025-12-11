@@ -41,6 +41,7 @@ contract PrivoteVoting is SepoliaConfig {
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public hasVoted;
     mapping(uint256 => mapping(address => euint64)) private votes;
+    mapping(uint256 => address[]) private proposalVoters;
 
     // Events
     event ProposalCreated(uint256 indexed proposalId, string title, uint256 startTime, uint256 endTime);
@@ -120,6 +121,7 @@ contract PrivoteVoting is SepoliaConfig {
         // Store encrypted vote
         votes[proposalId][msg.sender] = vote;
         hasVoted[proposalId][msg.sender] = true;
+        proposalVoters[proposalId].push(msg.sender);
 
         // Allow voter to access their vote
         FHE.allow(vote, msg.sender);
@@ -162,11 +164,14 @@ contract PrivoteVoting is SepoliaConfig {
         // Initialize tally to zero
         euint64 tally = FHE.asEuint64(0);
 
-        // This is a simplified implementation
-        // In production, you would iterate through voters or use a different pattern
-        // For now, we set tally to voteCount as placeholder
-        require(proposal.voteCount <= type(uint64).max, "Vote count overflow");
-        tally = FHE.asEuint64(uint64(proposal.voteCount));
+        address[] storage voters = proposalVoters[proposalId];
+        uint256 voterCount = voters.length;
+
+        for (uint256 i = 0; i < voterCount; i++) {
+            address voter = voters[i];
+            euint64 v = votes[proposalId][voter];
+            tally = FHE.add(tally, v);
+        }
 
         proposal.encryptedTally = tally;
         proposal.tallyComputed = true;

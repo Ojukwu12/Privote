@@ -183,12 +183,12 @@ export default function ProposalDetailPage() {
           {decryptedTally && (
             <div className="text-xs text-gray-700 break-all pt-3 border-l-4 border-orange-500 pl-3 bg-orange-50 py-2">
               <span className="font-semibold">Decrypted tally (public):</span> 
-              {decryptedTallyData?.isDecrypted === false && (
-                <span className="ml-2 px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-bold">
-                  ⚠️ MOCK DATA - Relayer unavailable
-                </span>
-              )}
               <pre className="whitespace-pre-wrap mt-2 text-xs">{decryptedTally}</pre>
+              {decryptedTallyData?.isDecrypted === false && (
+                <div className="text-xs text-red-700 mt-2">
+                  Public decryption failed via relayer. Try again or decrypt locally with your private key.
+                </div>
+              )}
             </div>
           )}
           {decryptedLocal && (

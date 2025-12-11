@@ -1,6 +1,7 @@
 const { Proposal, Vote, AuditLog } = require('../models');
 const logger = require('../utils/logger');
 const CustomError = require('../utils/CustomError');
+const contractService = require('./contractService');
 
 /**
  * Proposal Service
@@ -38,21 +39,43 @@ class ProposalService {
       throw new CustomError('End time must be after start time', 400);
     }
 
-    // Create proposal
+    // Ensure contract service ready
+    if (!contractService.initialized) {
+      await contractService.initialize();
+    }
+
+    // Create proposal on-chain first to obtain contractProposalId
+    const startTimeSec = Math.floor(start.getTime() / 1000);
+    const endTimeSec = Math.floor(end.getTime() / 1000);
+
+    const onChain = await contractService.createProposalOnChain({
+      title,
+      description,
+      startTimeSec,
+      endTimeSec
+    });
+
+    if (typeof onChain.proposalId !== 'number') {
+      throw new CustomError('Failed to retrieve on-chain proposal id', 500);
+    }
+
+    // Create proposal in database with on-chain mapping
     const proposal = await Proposal.create({
       title,
       description,
       startTime: start,
       endTime: end,
       requiredRole: requiredRole || 'user',
-      createdBy
+      createdBy,
+      contractProposalId: onChain.proposalId,
+      contractCreateTxHash: onChain.txHash
     });
 
     // Audit log
     await AuditLog.create({
       userId: createdBy,
       action: 'PROPOSAL_CREATE',
-      data: { proposalId: proposal._id, title },
+      data: { proposalId: proposal._id, title, contractProposalId: proposal.contractProposalId, txHash: proposal.contractCreateTxHash },
       ipAddress: requestMeta.ipAddress,
       userAgent: requestMeta.userAgent
     });
@@ -169,15 +192,28 @@ class ProposalService {
       throw new CustomError('Cannot close proposal before end time', 400);
     }
 
-    // Mark as closed
+    // Ensure on-chain proposal exists
+    if (typeof proposal.contractProposalId !== 'number') {
+      throw new CustomError('On-chain proposal not ready. Cannot close.', 503);
+    }
+
+    // Close on-chain first (admin wallet)
+    if (!contractService.initialized) {
+      await contractService.initialize();
+    }
+
+    const closeResult = await contractService.closeProposal(proposal.contractProposalId);
+
+    // Mark as closed locally with tx hash
     proposal.closed = true;
+    proposal.txHash = closeResult.txHash;
     await proposal.save();
 
     // Audit log
     await AuditLog.create({
       userId,
       action: 'PROPOSAL_CLOSE',
-      data: { proposalId, title: proposal.title },
+      data: { proposalId, title: proposal.title, contractProposalId: proposal.contractProposalId, txHash: closeResult.txHash },
       ipAddress: requestMeta.ipAddress,
       userAgent: requestMeta.userAgent
     });

@@ -295,6 +295,11 @@ export class ApiErrorClient extends Error {
   }
 
   getUserFriendlyMessage(): string {
+    // First, check if there's a detailed error message from backend
+    if (this.metadata?.message) {
+      return this.metadata.message;
+    }
+
     // If server provided validation errors, surface them directly
     if (this.metadata && Array.isArray(this.metadata.errors) && this.metadata.errors.length > 0) {
       try {
@@ -304,25 +309,67 @@ export class ApiErrorClient extends Error {
       }
     }
 
+    // Check for specific backend error patterns
+    if (this.message) {
+      // These match backend error messages
+      if (this.message.includes('already voted')) {
+        return 'You have already voted on this proposal. Each address can only vote once.';
+      }
+      if (this.message.includes('Proposal is not accepting votes')) {
+        return 'This proposal is not currently accepting votes. It may be closed or not yet started.';
+      }
+      if (this.message.includes('Proposal not found')) {
+        return 'This proposal does not exist or has been deleted.';
+      }
+      if (this.message.includes('User not found')) {
+        return 'Your user account could not be found. Please log in again.';
+      }
+      if (this.message.includes('Job not found')) {
+        return 'Your vote submission was not found. Please try submitting again.';
+      }
+      if (this.message.includes('Token expired')) {
+        return 'Your session has expired. Please log in again.';
+      }
+      if (this.message.includes('Invalid token')) {
+        return 'Your session is invalid. Please log in again.';
+      }
+      if (this.message.includes('Tally not yet computed')) {
+        return 'The vote tally has not been computed yet. Please wait for the proposal period to end.';
+      }
+      if (this.message.includes('Vote submission to contract failed')) {
+        return 'Failed to submit your vote to the blockchain. Please check your connection and try again.';
+      }
+      if (this.message.includes('Encryption failed')) {
+        return 'Vote encryption failed. Please check that FHE is properly configured and try again.';
+      }
+      // Return the original message if it's detailed enough
+      if (this.message.length > 20 && !this.message.includes('Unknown error')) {
+        return this.message;
+      }
+    }
+
+    // Generic status code responses
     switch (this.statusCode) {
       case 400:
-        return 'Invalid request. Please check your input.';
+        return 'Invalid request. Please check your input and try again.';
       case 401:
         return 'Authentication failed. Please log in again.';
       case 403:
         return 'You do not have permission to perform this action.';
       case 404:
-        return 'Resource not found.';
+        return 'The requested resource was not found.';
       case 409:
-        return 'This resource already exists.';
+        return 'This resource already exists or conflicts with another entry.';
       case 429:
-        return 'Too many requests. Please try again later.';
+        return 'Too many requests. Please wait a moment and try again.';
       case 422:
-        return 'Validation failed. Please check your input.';
+        return 'Validation failed. Please check your input and try again.';
       case 500:
-        return 'Server error. Please try again later.';
+      case 502:
+      case 503:
+        return 'Server error. Please try again later or contact support.';
       default:
-        return this.message;
+        return this.message || 'An unexpected error occurred. Please try again.';
     }
   }
 

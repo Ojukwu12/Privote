@@ -1,11 +1,23 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
+  "framework": "nextjs",
+  "projectSettings": {
+    "sourceFilesOutsideRootDirectory": false,
+    "nodeVersion": "20.x"
+  },
   "env": {
     "NEXT_PUBLIC_API_URL": "@privote_api_url",
-    "NEXT_PUBLIC_CHAIN_ID": "@privote_chain_id",
-    "NEXT_PUBLIC_GATEWAY_CHAIN_ID": "@privote_gateway_chain_id",
-    "NEXT_PUBLIC_RELAYER_URL": "@privote_relayer_url",
-    "NEXT_PUBLIC_GATEWAY_URL": "@privote_gateway_url"
+    "NEXT_PUBLIC_FHE_RELAYER_URL": "@privote_fhe_relayer_url",
+    "NEXT_PUBLIC_FHE_NETWORK_RPC_URL": "@privote_fhe_network_rpc_url",
+    "NEXT_PUBLIC_FHE_CHAIN_ID": "@privote_fhe_chain_id",
+    "NEXT_PUBLIC_FHE_GATEWAY_CHAIN_ID": "@privote_fhe_gateway_chain_id",
+    "NEXT_PUBLIC_FHE_ACL_CONTRACT_ADDRESS": "@privote_fhe_acl_contract_address",
+    "NEXT_PUBLIC_FHE_KMS_CONTRACT_ADDRESS": "@privote_fhe_kms_contract_address",
+    "NEXT_PUBLIC_FHE_INPUT_VERIFIER_CONTRACT_ADDRESS": "@privote_fhe_input_verifier_contract_address",
+    "NEXT_PUBLIC_FHE_VERIFYING_CONTRACT_ADDRESS_DECRYPTION": "@privote_fhe_verifying_contract_address_decryption",
+    "NEXT_PUBLIC_FHE_VERIFYING_CONTRACT_ADDRESS_INPUT_VERIFICATION": "@privote_fhe_verifying_contract_address_input_verification",
+    "NEXT_PUBLIC_FHE_CONTRACT_ADDRESS": "@privote_fhe_contract_address",
+    "NEXT_PUBLIC_FHE_VOTING_CONTRACT_ADDRESS": "@privote_fhe_voting_contract_address"
   }
 }

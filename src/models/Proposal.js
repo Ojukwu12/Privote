@@ -51,6 +51,17 @@ const proposalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // On-chain proposal identifier (from PrivoteVoting contract)
+  contractProposalId: {
+    type: Number,
+    unique: true,
+    sparse: true
+  },
+  // Transaction hash for the on-chain createProposal call
+  contractCreateTxHash: {
+    type: String,
+    default: null
+  },
   closed: {
     type: Boolean,
     default: false

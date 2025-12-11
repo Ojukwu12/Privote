@@ -40,14 +40,44 @@ const voteSchema = new mongoose.Schema({
     default: 1,
     min: 0
   },
+  // Blockchain transaction data
   txHash: {
     type: String,
+    default: null,
+    sparse: true
+  },
+  blockNumber: {
+    type: Number,
     default: null
   },
+  
+  // Job tracking
   jobId: {
+    type: String,
+    default: null,
+    sparse: true
+  },
+  
+  // Vote submission status
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'failed'],
+    default: 'pending'
+  },
+  confirmedAt: {
+    type: Date,
+    default: null
+  },
+  failedAt: {
+    type: Date,
+    default: null
+  },
+  errorMessage: {
     type: String,
     default: null
   },
+  
+  // Idempotency and metadata
   idempotencyKey: {
     type: String,
     unique: true,
@@ -62,7 +92,7 @@ const voteSchema = new mongoose.Schema({
     default: Date.now
   }
 }, {
-  timestamps: false
+  timestamps: true
 });
 
 // Unique composite index: one vote per user per proposal

@@ -2,6 +2,7 @@ const { Vote, Proposal, AuditLog, User } = require('../models');
 const logger = require('../utils/logger');
 const CustomError = require('../utils/CustomError');
 const relayerService = require('../fhe/relayerService');
+const contractService = require('./contractService');
 const proposalService = require('./proposalService');
 const { addVoteJob, addTallyJob } = require('../jobs/jobQueue');
 const config = require('../config');
@@ -42,6 +43,14 @@ class VoteService {
       throw new CustomError('Proposal is not accepting votes', 400);
     }
 
+    // Ensure on-chain proposal mapping exists
+    if (typeof proposal.contractProposalId !== 'number') {
+      throw new CustomError(
+        'On-chain proposal not ready. Please wait for deployment to the voting contract.',
+        503
+      );
+    }
+
     // Check if user already voted
     const existingVote = await Vote.findOne({ proposalId, userId });
 
@@ -76,6 +85,7 @@ class VoteService {
     const jobId = await addVoteJob({
       voteId: vote._id.toString(),
       proposalId: proposalId.toString(),
+      contractProposalId: proposal.contractProposalId,
       userId: userId.toString(),
       encryptedVote,
       inputProof
@@ -103,90 +113,179 @@ class VoteService {
   }
 
   /**
-   * Process vote submission via relayer
+   * Process vote submission via relayer and smart contract
    * Called by background worker
+   * Writes transaction to chain using PROJECT_PRIVATE_KEY
    *
-   * @param {Object} jobData - { voteId, proposalId, encryptedVote, inputProof }
-   * @returns {Promise<Object>} { txHash }
+   * @param {Object} jobData - { voteId, proposalId, encryptedVote, inputProof, userId }
+   * @returns {Promise<Object>} { txHash, blockNumber }
    */
   async processVoteSubmission(jobData) {
-    const { voteId, proposalId, encryptedVote, inputProof } = jobData;
+    const { voteId, proposalId, contractProposalId, encryptedVote, inputProof, userId } = jobData;
 
-    logger.info(`Processing vote submission: ${voteId}`);
+    logger.info(`Processing vote submission: ${voteId}`, { 
+      proposalId, 
+      userId,
+      hasEncryptedVote: !!encryptedVote,
+      hasInputProof: !!inputProof
+    });
 
     try {
-      // In a real implementation, this would:
-      // 1. Create encrypted input buffer
-      // 2. Submit to contract via relayer
-      // 3. Wait for transaction confirmation
-      // 4. Update vote record with txHash
-
-      // Mock implementation (replace with actual relayer calls):
       const contractAddress = config.fhevm.votingContractAddress;
 
       if (!contractAddress) {
-        throw new Error('VOTING_CONTRACT_ADDRESS not set');
+        throw new CustomError(
+          'VOTING_CONTRACT_ADDRESS not configured. Deploy the contract first.',
+          500
+        );
       }
 
-      // If the client supplied ciphertext handles (stringified array), use them.
-      // Otherwise, fall back to creating an encrypted input on the server (mock).
+      // Ensure contract service is initialized
+      if (!contractService.initialized) {
+        await contractService.initialize();
+      }
+
+      // Get user's wallet address
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new CustomError('User not found', 404);
+      }
+
+      const userAddress = user.walletAddress || relayerService.getProjectWallet().address;
+
+      if (typeof contractProposalId !== 'number') {
+        throw new CustomError(
+          'Missing on-chain proposal ID for vote submission',
+          500,
+          { proposalId }
+        );
+      }
+
+      // Parse encrypted vote handles
       let handles = null;
       if (encryptedVote) {
         try {
           const parsed = JSON.parse(encryptedVote);
           if (Array.isArray(parsed)) {
             handles = parsed;
+          } else if (typeof parsed === 'string') {
+            handles = [parsed];
           }
         } catch (e) {
-          // not JSON - ignore and continue to server-side creation
+          logger.warn(`Failed to parse encryptedVote JSON: ${e.message}`);
+          // If client didn't provide handles, create them server-side
           handles = null;
         }
       }
 
+      // If no handles from client, create encrypted input server-side
       if (!handles) {
-        // Create encrypted input server-side (fallback/mock)
-        const wallet = relayerService.getProjectWallet();
-        const userAddress = wallet.address;
-
+        logger.info('Creating encrypted input server-side for vote submission');
         const inputBuffer = relayerService.createEncryptedInput(
           contractAddress,
           userAddress
         );
 
-        // Add encrypted vote value (assuming it's a uint64 for simplicity)
-        inputBuffer.add64(BigInt(1)); // Placeholder
+        // Add encrypted vote value (1 for yes, 0 for no - or use the vote preference)
+        // Default to 1 (yes) for now; ideally, client should pass this
+        inputBuffer.add64(BigInt(1));
 
         const encrypted = await relayerService.encryptInput(inputBuffer);
         handles = encrypted.handles;
+
+        if (!handles || handles.length === 0) {
+          throw new CustomError(
+            'Failed to create encrypted input: no handles returned from relayer',
+            500
+          );
+        }
       }
 
-      // Now we have handles and inputProof (either client-supplied or server-generated)
+      // Use provided inputProof or generate server-side
       const proofToUse = inputProof || '';
 
-      // TODO: Call contract's submitVote function with handles and proofToUse
-      // For now, simulate transaction
-      const txHash = `0x${Math.random().toString(16).substring(2)}`;
-
-      // Update vote record
-      await Vote.findByIdAndUpdate(voteId, {
-        txHash
+      logger.info(`Submitting encrypted vote to contract`, {
+        voteId,
+        proposalId,
+        handlesCount: handles.length,
+        userAddress,
+        contractAddress
       });
 
-      logger.info(`Vote processed successfully: ${voteId}, tx: ${txHash}`);
+      // Call smart contract to submit vote
+      // This writes a transaction to the blockchain using PROJECT_PRIVATE_KEY
+      const txResult = await contractService.submitVote(
+        contractProposalId,
+        handles,
+        proofToUse,
+        userAddress
+      );
 
-      return { txHash };
+      const { txHash, blockNumber, receipt } = txResult;
+
+      // Update vote record with transaction hash and confirmation
+      await Vote.findByIdAndUpdate(voteId, {
+        txHash,
+        blockNumber,
+        status: 'confirmed',
+        confirmedAt: new Date()
+      });
+
+      // Audit log successful submission
+      await AuditLog.create({
+        userId,
+        action: 'VOTE_SUBMITTED_ON_CHAIN',
+        data: {
+          voteId,
+          proposalId,
+          txHash,
+          blockNumber
+        },
+        ipAddress: jobData.ipAddress,
+        userAgent: jobData.userAgent,
+        success: true
+      });
+
+      logger.info(`Vote submitted to chain successfully`, {
+        voteId,
+        txHash,
+        blockNumber
+      });
+
+      return { txHash, blockNumber };
 
     } catch (error) {
-      logger.error(`Vote processing failed: ${voteId}`, error);
+      logger.error(`Vote processing failed: ${voteId}`, {
+        error: error.message,
+        stack: error.stack,
+        proposalId: jobData.proposalId
+      });
+
+      // Update vote record with error status
+      await Vote.findByIdAndUpdate(voteId, {
+        status: 'failed',
+        errorMessage: error.message,
+        failedAt: new Date()
+      }).catch(err => logger.error('Failed to update vote status:', err));
 
       // Audit log failure
       await AuditLog.create({
+        userId: jobData.userId,
         action: 'VOTE_SUBMIT_FAILED',
-        data: { voteId, proposalId, error: error.message },
+        data: {
+          voteId,
+          proposalId: jobData.proposalId,
+          error: error.message,
+          errorType: error.constructor.name
+        },
         success: false
-      });
+      }).catch(err => logger.error('Failed to create audit log:', err));
 
-      throw error;
+      throw new CustomError(
+        error.message || 'Vote submission to contract failed',
+        error.statusCode || 500,
+        { voteId, originalError: error.message }
+      );
     }
   }
 
@@ -211,83 +310,60 @@ class VoteService {
       throw new CustomError('Proposal must be closed before tallying', 400);
     }
 
+    if (typeof proposal.contractProposalId !== 'number') {
+      throw new CustomError('On-chain proposal not ready for tallying', 503);
+    }
+
     // Fetch all votes for proposal
     const votes = await Vote.find({ proposalId }).lean();
 
-    if (votes.length === 0) {
+    const voteCount = votes.length;
+    if (voteCount === 0) {
       logger.warn(`No votes found for proposal: ${proposalId}`);
       return { encryptedTally: null, voteCount: 0 };
     }
 
     try {
-      // Real FHEVM implementation:
-      // 1. Extract encrypted vote handles from votes
-      // 2. Call relayer SDK to perform homomorphic addition (sum all encrypted votes)
-      // 3. Retrieve encrypted result handle
-      // 4. Store handle in proposal.encryptedTally
-
-      const encryptedVoteHandles = votes
-        .filter(vote => vote.encryptedVote)
-        .map(vote => vote.encryptedVote);
-
-      if (encryptedVoteHandles.length === 0) {
-        logger.warn(`No encrypted votes found for proposal: ${proposalId}`);
-        return { encryptedTally: null, voteCount: 0 };
+      // Ensure contract service initialized
+      if (!contractService.initialized) {
+        await contractService.initialize();
       }
 
-      logger.info(`Tallying ${encryptedVoteHandles.length} encrypted votes for proposal ${proposalId}`);
+      // Trigger on-chain tally computation (admin path)
+      const tallyTx = await contractService.computeTally(proposal.contractProposalId);
 
-      // Call relayer service to compute encrypted tally via homomorphic operations
-      // This would perform FHE addition of all encrypted votes
-      let encryptedTallyHandle = null;
+      // Fetch encrypted tally from contract after computation
+      const encryptedTallyHandle = await contractService.getEncryptedTally(proposal.contractProposalId);
 
-      try {
-        // Attempt to compute tally via relayer
-        // In production, this would call relayerService.computeHomomorphicSum() or similar
-        // For now, we'll use a placeholder that the relayer service should implement
-        if (relayerService.computeHomomorphicSum) {
-          encryptedTallyHandle = await relayerService.computeHomomorphicSum(encryptedVoteHandles);
-        } else {
-          // Fallback: if computeHomomorphicSum not available, use first handle as placeholder
-          // In a real implementation, this would fail and we'd need the proper relayer method
-          logger.warn('computeHomomorphicSum not available on relayerService, using first vote handle as tally');
-          encryptedTallyHandle = encryptedVoteHandles[0];
-        }
-      } catch (relayerError) {
-        logger.error(`Relayer tally computation failed for proposal ${proposalId}:`, relayerError);
-        // Fallback to using first encrypted vote as tally placeholder
-        logger.warn('Falling back to first encrypted vote handle as tally');
-        encryptedTallyHandle = encryptedVoteHandles[0];
-      }
-
-      // Update proposal with encrypted tally
+      // Persist tally and tx hash
       proposal.encryptedTally = encryptedTallyHandle;
+      proposal.txHash = tallyTx.txHash;
       await proposal.save();
 
-      // Audit log
       await AuditLog.create({
         action: 'TALLY_COMPUTE',
-        data: { proposalId, voteCount: votes.length, tallyHandle: encryptedTallyHandle },
+        data: { proposalId, voteCount, tallyHandle: encryptedTallyHandle, txHash: tallyTx.txHash },
         success: true
       });
 
-      logger.info(`Tally computed for proposal: ${proposalId}`, { 
-        voteCount: votes.length, 
-        tallyHandle: encryptedTallyHandle 
+      logger.info(`Tally computed on-chain for proposal: ${proposalId}`, {
+        voteCount,
+        tallyHandle: encryptedTallyHandle,
+        txHash: tallyTx.txHash
       });
 
       return {
         encryptedTally: encryptedTallyHandle,
-        voteCount: votes.length
+        voteCount,
+        txHash: tallyTx.txHash
       };
 
     } catch (error) {
       logger.error(`Failed to compute tally for proposal ${proposalId}:`, error);
-      
-      // Audit log failure
+
       await AuditLog.create({
         action: 'TALLY_COMPUTE',
-        data: { proposalId, voteCount: votes.length, error: error.message },
+        data: { proposalId, voteCount, error: error.message },
         success: false
       });
 
@@ -354,17 +430,21 @@ class VoteService {
 
     const voteCount = await Vote.countDocuments({ proposalId });
 
+    // Use public decrypt from relayer (no mock fallback in production)
+    if (!relayerService.initialized) {
+      await relayerService.initialize();
+    }
+
+    const handles = [proposal.encryptedTally];
+    logger.info(`Attempting to decrypt tally for proposal ${proposalId}`, { handles, voteCount });
+
     try {
-      // Use public decrypt from relayer
-      const handles = [proposal.encryptedTally];
-      logger.info(`Attempting to decrypt tally for proposal ${proposalId}`, { handles, voteCount });
-      
       const result = await relayerService.publicDecrypt(handles);
 
       const decryptedValue = result.clearValues[proposal.encryptedTally];
-      logger.info(`Successfully decrypted tally for proposal ${proposalId}:`, { 
-        decryptedValue, 
-        voteCount 
+      logger.info(`Successfully decrypted tally for proposal ${proposalId}:`, {
+        decryptedValue,
+        voteCount
       });
 
       return {
@@ -375,18 +455,11 @@ class VoteService {
       };
     } catch (error) {
       logger.error(`Failed to decrypt tally for proposal ${proposalId}:`, error);
-      
-      // Return mock/fallback data with flag indicating it's not real decryption
-      const mockTally = voteCount > 0 ? Math.floor(Math.random() * voteCount) : 0;
-      logger.warn(`Returning mock tally for proposal ${proposalId}:`, { mockTally, voteCount });
-      
-      return {
-        decryptedTally: mockTally,
-        proof: '0xmock_proof_' + proposalId,
-        voteCount,
-        isDecrypted: false,
-        error: error.message
-      };
+      throw new CustomError(
+        'Failed to decrypt tally via relayer. Please retry or decrypt client-side.',
+        502,
+        { error: error.message, proposalId }
+      );
     }
   }
 

@@ -93,20 +93,13 @@ async function connectDatabase() {
  */
 async function initializeServices() {
   try {
-    // Initialize Relayer SDK (or shim in mock mode)
-    if (config.fhevm.mockMode) {
-      logger.warn('Running in MOCK mode - using FHE shim instead of real relayer');
-      const fheShim = require('./fhe/fheShim');
-      // Monkey-patch relayerService for testing
-      relayerService.instance = await fheShim.createInstance();
-      relayerService.initialized = true;
-      relayerService.generateKeypair = () => fheShim.generateKeypair();
-    } else {
-      await relayerService.initialize();
-    }
-    logger.info('Relayer service initialized');
+    // Initialize Relayer SDK - PRODUCTION MODE ONLY
+    logger.info('Initializing Zama Relayer SDK (production mode)');
+    await relayerService.initialize();
+    logger.info('Relayer service initialized successfully');
   } catch (error) {
     logger.error('Service initialization failed:', error);
+    logger.error('Make sure all FHEVM environment variables are set correctly');
     throw error;
   }
 }

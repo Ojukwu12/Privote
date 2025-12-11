@@ -271,6 +271,37 @@ export function ProposalsList() {
 4. **Deploy**:
    - Vercel auto-deploys on push to `main` branch
 
+## Production Deployment (Vercel)
+
+1. Set these Vercel env vars (Project Settings → Environment Variables):
+   - NEXT_PUBLIC_API_URL = https://privote-on-zama.onrender.com/api (or your backend URL)
+   - NEXT_PUBLIC_FHE_RELAYER_URL = https://relayer.testnet.zama.org
+   - NEXT_PUBLIC_FHE_NETWORK_RPC_URL = https://ethereum-sepolia-rpc.publicnode.com
+   - NEXT_PUBLIC_FHE_CHAIN_ID = 11155111
+   - NEXT_PUBLIC_FHE_GATEWAY_CHAIN_ID = 10901
+   - NEXT_PUBLIC_FHE_ACL_CONTRACT_ADDRESS = 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D
+   - NEXT_PUBLIC_FHE_KMS_CONTRACT_ADDRESS = 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A
+   - NEXT_PUBLIC_FHE_INPUT_VERIFIER_CONTRACT_ADDRESS = 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0
+   - NEXT_PUBLIC_FHE_VERIFYING_CONTRACT_ADDRESS_DECRYPTION = 0x5D8BD78e2ea6bbE41f26dFe9fdaEAa349e077478
+   - NEXT_PUBLIC_FHE_VERIFYING_CONTRACT_ADDRESS_INPUT_VERIFICATION = 0x483b9dE06E4E4C7D35CCf5837A1668487406D955
+   - NEXT_PUBLIC_FHE_CONTRACT_ADDRESS = <your deployed PrivoteVoting address>
+   - NEXT_PUBLIC_FHE_VOTING_CONTRACT_ADDRESS = <same as above>
+
+2. Ensure backend is reachable from Vercel (CORS open or domain allowed).
+
+3. Deploy:
+   ```bash
+   npm install
+   npm run build
+   ```
+   Vercel will run these automatically on deploy.
+
+4. Post-deploy smoke test:
+   - Load the app, login/register
+   - Create a proposal (admin), cast a vote
+   - Verify job status returns tx hash
+   - Close proposal and fetch public tally
+
 ### Render
 
 1. **Create Render Account**: [render.com](https://render.com)
@@ -378,7 +409,7 @@ NEXT_PUBLIC_MOCK_FHE=true npm run dev
 
 ## Contributing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](../docs/CONTRIBUTING.md) for guidelines.
 
 ## License
 
@@ -386,8 +417,8 @@ MIT License - see [LICENSE](../LICENSE)
 
 ## Support
 
-- **Documentation**: [../../README.md](../Privote/README.md)
-- **Backend API Docs**: [../../API.md](../Privote/API.md)
+- **Documentation**: [../README.md](../README.md)
+- **Backend API Docs**: [../docs/API.md](../docs/API.md)
 - **Issues**: [GitHub Issues](https://github.com/yourrepo/issues)
 - **Email**: support@privote.io
 

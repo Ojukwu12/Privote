@@ -392,7 +392,7 @@ Uses `fheShim.js` for FHE simulation (no relayer needed).
 
 ## API Documentation
 
-**Complete API Reference**: [API.md](./API.md)
+**Complete API Reference**: [docs/API.md](docs/API.md)
 
 ### Quick API Examples
 
@@ -448,7 +448,7 @@ curl -X POST http://localhost:3000/api/votes/submit \
   }'
 ```
 
-See [API.md](./API.md) for complete endpoint list and examples.
+See [docs/API.md](docs/API.md) for complete endpoint list and examples.
 
 ---
 
@@ -500,7 +500,7 @@ See [API.md](./API.md) for complete endpoint list and examples.
    });
    ```
 
-**Full frontend guide**: [API.md - Frontend Integration](./API.md#frontend-integration-guide)
+**Full frontend guide**: [API.md - Frontend Integration](docs/API.md#frontend-integration-guide)
 
 ---
 
@@ -527,7 +527,7 @@ See [API.md](./API.md) for complete endpoint list and examples.
 - [ ] Enable log aggregation
 - [ ] Review rate limits
 
-**Full security guide**: [SECURITY.md](./SECURITY.md)
+**Full security guide**: [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
@@ -671,7 +671,7 @@ Privote/
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 
 ### Quick Start
 
@@ -700,7 +700,7 @@ MIT License - see [LICENSE](./LICENSE)
 ## Support & Contact
 
 - **GitHub Issues**: [https://github.com/Ojukwu12/Privote/issues](https://github.com/Ojukwu12/Privote/issues)
-- **Documentation**: [API.md](./API.md) | [SECURITY.md](./SECURITY.md)
+- **Documentation**: [API.md](docs/API.md) | [SECURITY.md](docs/SECURITY.md)
 - **Email**: support@privote.io
 - **Security**: security@privote.io (for vulnerability reports)
 

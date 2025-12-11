@@ -172,56 +172,29 @@ class RelayerService {
   async publicDecrypt(handles) {
     this._ensureInitialized();
     try {
+      logger.info('Requesting public decryption from Zama relayer', { handleCount: handles.length });
       const results = await this.instance.publicDecrypt(handles);
-      logger.info('Public decrypt succeeded via relayer');
+      logger.info('Public decrypt succeeded via Zama relayer', { resultKeys: Object.keys(results) });
       return results;
     } catch (error) {
-      logger.warn('Public decrypt via relayer failed, attempting mock fallback', { error: error.message });
-      
-      // Fallback to mock data for development/testing
-      try {
-        return this._generateMockPublicDecryptResult(handles);
-      } catch (mockError) {
-        logger.error('Both public decrypt and mock fallback failed:', mockError);
-        throw new CustomError('Public decryption failed', 500, { 
-          error: error.message,
-          mockFallbackError: mockError.message 
-        });
-      }
+      logger.error('Public decryption via Zama relayer failed:', {
+        error: error.message,
+        stack: error.stack,
+        handles: handles
+      });
+      throw new CustomError(
+        'Failed to decrypt data using Zama relayer. Ensure the ciphertext is publicly decryptable and the relayer service is available.',
+        500,
+        { 
+          originalError: error.message,
+          handleCount: handles.length,
+          relayerUrl: config.fhevm.relayerUrl
+        }
+      );
     }
   }
 
-  /**
-   * Generate mock public decrypt result
-   * Used as fallback when relayer is unavailable
-   * @private
-   */
-  _generateMockPublicDecryptResult(handles) {
-    const clearValues = {};
-    const abiEncodedClearValues = {};
 
-    // Generate mock decrypted values for each handle
-    // In a real scenario, these would be actual vote counts
-    handles.forEach((handle, index) => {
-      // Mock decrypted value: random vote count between 0-100
-      const mockValue = Math.floor(Math.random() * 100);
-      clearValues[handle] = mockValue;
-      
-      // Mock ABI encoded value (would be ethers encoded in production)
-      abiEncodedClearValues[handle] = '0x' + mockValue.toString(16).padStart(64, '0');
-    });
-
-    // Mock decryption proof
-    const mockProof = '0x' + 'mock'.repeat(16).substring(0, 128);
-
-    logger.info('Generated mock public decrypt result', { handleCount: handles.length });
-
-    return {
-      clearValues,
-      abiEncodedClearValues,
-      decryptionProof: mockProof
-    };
-  }
 
   /**
    * Compute homomorphic sum of encrypted values
@@ -247,18 +220,18 @@ class RelayerService {
         return encryptedHandles[0];
       }
 
-      // Try to use relayer SDK's homomorphic operations if available
-      if (this.instance && typeof this.instance.computeHomomorphicSum === 'function') {
-        logger.info('Using relayer SDK computeHomomorphicSum');
-        const result = await this.instance.computeHomomorphicSum(encryptedHandles);
-        logger.info('Homomorphic sum computed successfully', { resultHandle: result });
-        return result;
-      }
-
-      // Fallback: return the first handle (represents accumulated votes)
-      // In production, this would fail and force proper FHE implementation
-      logger.warn('Relayer SDK homomorphic sum not available, using fallback strategy');
-      return encryptedHandles[0];
+      // Note: Zama SDK may not have computeHomomorphicSum directly
+      // Instead, we need to perform homomorphic operations on-chain
+      // For now, this method indicates the operation should happen via smart contract
+      logger.warn('Homomorphic sum should be computed on-chain via smart contract');
+      throw new CustomError(
+        'Homomorphic tally computation must be performed on-chain via the voting contract',
+        501,
+        {
+          message: 'Call contract.computeTally() instead of computing sum off-chain',
+          handlesCount: encryptedHandles.length
+        }
+      );
 
     } catch (error) {
       logger.error('Failed to compute homomorphic sum:', error);
