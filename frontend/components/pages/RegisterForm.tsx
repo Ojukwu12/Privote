@@ -7,8 +7,6 @@ import { Alert } from '@/components/ui/Alert';
 import { useRegister } from '@/lib/hooks/useApi';
 import { ApiClient, ApiErrorClient } from '@/lib/api/client';
 import { useAuth } from '@/lib/context/AuthContext';
-import { useDecryptPrivateKey } from '@/lib/hooks/useApi';
-import PrivateKeyModal from '@/components/ui/PrivateKeyModal';
 import { useRouter } from 'next/navigation';
 import ErrorDetails from '@/components/ui/ErrorDetails';
 
@@ -16,7 +14,6 @@ export function RegisterForm() {
   const router = useRouter();
   const { register: registerApi, loading, error } = useRegister();
   const { login } = useAuth();
-  const { decrypt, loading: decryptLoading } = useDecryptPrivateKey();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -59,22 +56,9 @@ export function RegisterForm() {
       // Log user in
       login(user, token);
 
-      // Try to fetch/decrypt the private key immediately so the user can save it.
-      try {
-        const privateKey = await decrypt(password, token);
-        if (privateKey) {
-          setPrivateKeyToShow(privateKey);
-          setShowKeyModal(true);
-          setValidationError(null);
-          // Wait for the user to close the modal before navigating.
-        }
-      } catch (err) {
-        // Non-fatal: user can still log in, but surface a friendly message
-        const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
-        setValidationError(apiErr.getUserFriendlyMessage());
-        // navigate even if decryption failed
-        router.push('/proposals');
-      }
+      // Navigate to proposals page
+      // Private key remains encrypted on server and will be decrypted with password when needed for voting
+      router.push('/proposals');
     } catch (err) {
       console.error(err);
       const apiErr = err instanceof ApiErrorClient ? err : new ApiErrorClient(String(err), 500);
@@ -82,42 +66,10 @@ export function RegisterForm() {
     }
   };
 
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [privateKeyToShow, setPrivateKeyToShow] = useState<string | null>(null);
-
-  const handleSaveToSession = () => {
-    if (!privateKeyToShow) return;
-    try {
-      sessionStorage.setItem('private_key', privateKeyToShow);
-    } catch (err) {
-      console.warn('Failed to save private key to session', err);
-    }
-  };
-
-  const handleCopiedAndDelete = () => {
-    // User copied their key — clear from client state to reduce exposure
-    setPrivateKeyToShow(null);
-    setShowKeyModal(false);
-    // Navigate after modal closed
-    router.push('/proposals');
-  };
-
-  const handleModalClose = () => {
-    setShowKeyModal(false);
-    router.push('/proposals');
-  };
-
   const friendlyError = error instanceof ApiErrorClient ? error.getUserFriendlyMessage() : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PrivateKeyModal
-        open={showKeyModal}
-        privateKey={privateKeyToShow || ''}
-        onClose={handleModalClose}
-        onSaveToSession={handleSaveToSession}
-        onCopiedAndDelete={handleCopiedAndDelete}
-      />
       {friendlyError && (
         <div>
           <Alert type="error" message={friendlyError} />

@@ -46,8 +46,11 @@ class VoteService {
     // Ensure on-chain proposal mapping exists
     if (typeof proposal.contractProposalId !== 'number') {
       throw new CustomError(
-        'On-chain proposal not ready. Please wait for deployment to the voting contract.',
-        503
+        'This proposal has not been deployed to the blockchain yet. ' +
+        'Proposals must be created via the API (POST /api/proposals) to be deployable. ' +
+        'Please contact an administrator.',
+        503,
+        { proposalId, reason: 'missing_contract_id' }
       );
     }
 
@@ -71,25 +74,41 @@ class VoteService {
       }
     }
 
-    // Create vote record
+    // Create vote record with pending status
+    // Note: Vote count will only increment after blockchain submission succeeds
     const vote = await Vote.create({
       proposalId,
       userId,
       encryptedVote,
       inputProof,
       idempotencyKey,
-      weight: 1 // Future: weighted voting based on token holdings
+      weight: 1, // Future: weighted voting based on token holdings
+      status: 'pending'
     });
 
     // Queue background job for relayer submission
-    const jobId = await addVoteJob({
-      voteId: vote._id.toString(),
-      proposalId: proposalId.toString(),
-      contractProposalId: proposal.contractProposalId,
-      userId: userId.toString(),
-      encryptedVote,
-      inputProof
-    });
+    let jobId;
+    try {
+      jobId = await addVoteJob({
+        voteId: vote._id.toString(),
+        proposalId: proposalId.toString(),
+        contractProposalId: proposal.contractProposalId,
+        userId: userId.toString(),
+        encryptedVote,
+        inputProof
+      });
+    } catch (error) {
+      // Delete the vote if job queueing fails
+      await Vote.findByIdAndDelete(vote._id);
+      
+      logger.error('Failed to queue vote job', { error: error.message, voteId: vote._id });
+      throw new CustomError(
+        'Failed to queue vote for processing. This usually means the background worker service is not running or Redis is unavailable. ' +
+        'Please try again later or contact an administrator.',
+        503,
+        { reason: 'worker_unavailable', originalError: error.message }
+      );
+    }
 
     // Update vote with job ID
     vote.jobId = jobId;
@@ -230,6 +249,13 @@ class VoteService {
         status: 'confirmed',
         confirmedAt: new Date()
       });
+
+      // Increment vote count on proposal only after successful blockchain submission
+      await Proposal.findByIdAndUpdate(proposalId, {
+        $inc: { voteCount: 1 }
+      });
+
+      logger.info('Vote count incremented after blockchain confirmation', { proposalId, voteId });
 
       // Audit log successful submission
       await AuditLog.create({

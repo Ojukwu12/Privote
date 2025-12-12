@@ -10,6 +10,7 @@ import { ApiErrorClient } from '@/lib/api/client';
 import ErrorDetails from '@/components/ui/ErrorDetails';
 import { v4 as uuidv4 } from 'uuid';
 import { encryptWithPublicKey } from '@/lib/fhe/client';
+import { ApiClient } from '@/lib/api/client';
 
 interface VoteFormProps {
   proposalId: string;
@@ -21,6 +22,8 @@ export function VoteForm({ proposalId }: VoteFormProps) {
   const [encryptedVote, setEncryptedVote] = useState('');
   const [inputProof, setInputProof] = useState('');
   const [privateKey, setPrivateKey] = useState<string | null>(null);
+  const [askPassword, setAskPassword] = useState(false);
+  const [password, setPassword] = useState('');
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -38,6 +41,39 @@ export function VoteForm({ proposalId }: VoteFormProps) {
     }
   }, [contractAddress]);
 
+  // Restore private key from session (if previously decrypted this session)
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('private_key');
+      if (stored) setPrivateKey(stored);
+    } catch {}
+  }, []);
+
+  const ensurePrivateKey = async () => {
+    if (privateKey) return privateKey;
+    if (!token) {
+      setLocalError('You must be logged in to vote');
+      throw new Error('Not authenticated');
+    }
+    if (!password) {
+      setAskPassword(true);
+      throw new Error('Password required');
+    }
+    try {
+      const res = await ApiClient.decryptPrivateKey(password, token);
+      const pk = res.data?.privateKey;
+      if (!pk) throw new Error('No private key returned');
+      setPrivateKey(pk);
+      sessionStorage.setItem('private_key', pk);
+      setAskPassword(false);
+      return pk;
+    } catch (err) {
+      const msg = err instanceof ApiErrorClient ? err.getUserFriendlyMessage() : String(err);
+      setLocalError(`Failed to decrypt private key: ${msg}`);
+      throw err;
+    }
+  };
+
   const handleEncrypt = async (choice: 'yes' | 'no') => {
     setLocalError(null);
     setIsEncrypting(true);
@@ -46,6 +82,9 @@ export function VoteForm({ proposalId }: VoteFormProps) {
       if (!contractAddress) {
         throw new Error('FHE contract address not configured. Cannot encrypt vote.');
       }
+
+      // Ensure we have user's private key via password (but never display it)
+      await ensurePrivateKey();
 
       // Attempt real FHE encryption using Zama SDK
       const res = await encryptWithPublicKey(undefined, choice, { 
@@ -66,14 +105,7 @@ export function VoteForm({ proposalId }: VoteFormProps) {
       setInputProof(res.inputProof);
       setVoteChoice(choice);
       
-      // Save private key if requested
-      if (privateKey) {
-        try {
-          sessionStorage.setItem('private_key', privateKey);
-        } catch (e) {
-          console.warn('Could not save private key to session storage');
-        }
-      }
+      // Private key remains in session storage only; never shown
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setLocalError(`Encryption failed: ${errorMsg}`);
@@ -162,43 +194,39 @@ export function VoteForm({ proposalId }: VoteFormProps) {
         </ol>
       </div>
 
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Private Key (Optional for decryption later)
-          </label>
-          <Input
-            value={privateKey || ''}
-            onChange={(e) => setPrivateKey(e.target.value || null)}
-            placeholder="Paste your private key if you want to decrypt results later"
-            type="password"
-          />
-          <p className="text-xs text-gray-500">
-            Your private key is used client-side only for decrypting voting results after tallying is complete.
+      {/* Password Modal for decrypting private key (not shown to user) */}
+      {askPassword && (
+        <div className="border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
+          <p className="text-sm text-gray-700">
+            Enter your account password to authorize vote encryption. Your private key stays hidden.
           </p>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+          <div className="flex gap-2">
+            <Button type="button" onClick={() => setAskPassword(false)} variant="ghost" className="w-1/3">Cancel</Button>
+            <Button type="button" onClick={async () => { try { await ensurePrivateKey(); } catch {} }} className="w-2/3">Unlock</Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <Button 
             type="button" 
             isLoading={isEncrypting}
             disabled={isEncrypting || loading}
-            className="w-full" 
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
             onClick={() => handleEncrypt('yes')}
           >
-            🔐 Encrypt Vote: YES
+            ✅ Vote YES
           </Button>
           <Button 
             type="button" 
-            variant="destructive"
             isLoading={isEncrypting}
             disabled={isEncrypting || loading}
-            className="w-full" 
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3"
             onClick={() => handleEncrypt('no')}
           >
-            🔐 Encrypt Vote: NO
+            ✋ Vote NO
           </Button>
         </div>
 

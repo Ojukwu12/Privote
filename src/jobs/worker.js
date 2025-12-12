@@ -111,7 +111,18 @@ async function initializeWorker() {
     await relayerService.initialize();
     logger.info('Worker initialized Relayer SDK');
 
-    logger.info('Workers started and ready to process jobs');
+    // Log Redis connection status
+    connection.on('connect', () => {
+      logger.info('Worker connected to Redis successfully');
+    });
+
+    connection.on('error', (err) => {
+      logger.error('Redis connection error in worker:', err);
+    });
+
+    logger.info('✅ Workers started and ready to process jobs');
+    logger.info('   - Vote worker: Processing up to 5 votes concurrently');
+    logger.info('   - Tally worker: Processing up to 2 tallies concurrently');
 
   } catch (error) {
     logger.error('Worker initialization failed:', error);

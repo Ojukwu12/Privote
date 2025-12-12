@@ -23,15 +23,16 @@ export async function encryptWithPublicKey(
       throw new Error('Contract address required for encryption');
     }
 
-    // Import Zama Relayer SDK
+    // Import Zama Relayer SDK: pick node build for SSR, web build for browser
     let sdk: any;
+    const isBrowser = typeof window !== 'undefined';
     try {
       sdk = await import('@zama-fhe/relayer-sdk');
     } catch (e1) {
       try {
-        sdk = await import('@zama-fhe/relayer-sdk/browser');
+        sdk = await import('fhevmjs');
       } catch (e2) {
-        throw new Error('Zama FHE Relayer SDK not available. Please install @zama-fhe/relayer-sdk.');
+        throw new Error('Zama FHE SDK not available. Please install @zama-fhe/relayer-sdk or fhevmjs.');
       }
     }
 
@@ -146,15 +147,16 @@ export async function userDecryptWithPrivateKey(
       throw new Error('No encrypted handles provided for decryption');
     }
 
-    // Import Zama Relayer SDK
+    // Import Zama Relayer SDK (SSR uses node build)
     let sdk: any;
+    const isBrowser = typeof window !== 'undefined';
     try {
       sdk = await import('@zama-fhe/relayer-sdk');
     } catch (e1) {
       try {
-        sdk = await import('@zama-fhe/relayer-sdk/browser');
+        sdk = await import('fhevmjs');
       } catch (e2) {
-        throw new Error('Zama FHE Relayer SDK not available for decryption');
+        throw new Error('Zama FHE SDK not available for decryption');
       }
     }
 
