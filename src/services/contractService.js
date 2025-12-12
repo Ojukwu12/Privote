@@ -61,9 +61,19 @@ class ContractService {
         );
       }
 
+      // Check if relayer service is initialized
+      if (!relayerService.initialized) {
+        logger.warn('Relayer service not initialized, initializing now...');
+        await relayerService.initialize();
+      }
+
       // Get wallet and provider from relayer service
       this.provider = relayerService.getProvider();
       this.wallet = relayerService.getProjectWallet();
+
+      if (!this.provider || !this.wallet) {
+        throw new Error('Failed to get provider or wallet from relayer service');
+      }
 
       // Initialize contract instance
       this.contract = new ethers.Contract(
@@ -79,9 +89,17 @@ class ContractService {
 
       this.initialized = true;
     } catch (error) {
-      logger.error('Failed to initialize contract service:', error);
+      logger.error('Failed to initialize contract service:', {
+        error: error.message,
+        stack: error.stack,
+        hasContractAddress: !!config.fhevm.votingContractAddress,
+        hasPrivateKey: !!config.fhevm.projectPrivateKey,
+        hasRelayerUrl: !!config.fhevm.relayerUrl,
+        hasRpcUrl: !!config.fhevm.networkRpcUrl
+      });
       throw new CustomError('Contract service initialization failed', 500, {
-        error: error.message
+        error: error.message,
+        details: 'Check that all FHEVM environment variables are set correctly'
       });
     }
   }

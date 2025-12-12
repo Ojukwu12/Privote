@@ -20,7 +20,11 @@ const relayerService = require('../fhe/relayerService');
 // Redis connection for workers
 const connection = new Redis(config.redisUrl, {
   maxRetriesPerRequest: null,
-  enableReadyCheck: false
+  enableReadyCheck: false,
+  lazyConnect: false,
+  // Suppress BullMQ eviction policy warning
+  // Note: If you control your Redis instance, set eviction policy to "noeviction"
+  showFriendlyErrorStack: process.env.NODE_ENV !== 'production'
 });
 
 /**
