@@ -152,15 +152,30 @@ class ContractService {
       logger.info('Calling contract submitVote', {
         proposalId,
         voteHandle: paddedHandle.substring(0, 20) + '...',
-        proofLength: proofBytes.length
+        proofLength: proofBytes.length,
+        contractAddress: this.contract.address,
+        walletAddress: this.wallet.address
       });
 
       // Call smart contract
-      const tx = await this.contract.submitVote(
-        proposalId,
-        paddedHandle,
-        proofBytes
-      );
+      let tx;
+      try {
+        tx = await this.contract.submitVote(
+          proposalId,
+          paddedHandle,
+          proofBytes
+        );
+      } catch (txError) {
+        logger.error('Transaction submission failed', {
+          error: txError.message,
+          code: txError.code,
+          reason: txError.reason,
+          data: txError.data,
+          proposalId,
+          contractAddress: this.contract.address
+        });
+        throw txError;
+      }
 
       logger.info('Vote transaction submitted', {
         txHash: tx.hash,
@@ -168,7 +183,17 @@ class ContractService {
       });
 
       // Wait for confirmation
-      const receipt = await tx.wait();
+      let receipt;
+      try {
+        receipt = await tx.wait();
+      } catch (waitError) {
+        logger.error('Transaction confirmation failed', {
+          error: waitError.message,
+          txHash: tx.hash,
+          proposalId
+        });
+        throw waitError;
+      }
 
       logger.info('Vote transaction confirmed', {
         txHash: receipt.hash,
