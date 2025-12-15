@@ -1,4 +1,5 @@
 const { Proposal, Vote, AuditLog } = require('../models');
+const config = require('../config');
 const logger = require('../utils/logger');
 const CustomError = require('../utils/CustomError');
 const contractService = require('./contractService');
@@ -59,6 +60,9 @@ class ProposalService {
       throw new CustomError('Failed to retrieve on-chain proposal id', 500);
     }
 
+    // Get contract address from config
+    const contractAddress = config.fhevm.votingContractAddress;
+
     // Create proposal in database with on-chain mapping
     const proposal = await Proposal.create({
       title,
@@ -67,6 +71,7 @@ class ProposalService {
       endTime: end,
       requiredRole: requiredRole || 'user',
       createdBy,
+      contractAddress,
       contractProposalId: onChain.proposalId,
       contractCreateTxHash: onChain.txHash
     });

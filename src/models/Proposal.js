@@ -51,10 +51,15 @@ const proposalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Contract address for this proposal
+  contractAddress: {
+    type: String,
+    default: null,
+    lowercase: true
+  },
   // On-chain proposal identifier (from PrivoteVoting contract)
   contractProposalId: {
     type: Number,
-    unique: true,
     sparse: true
   },
   // Transaction hash for the on-chain createProposal call
@@ -99,6 +104,12 @@ const proposalSchema = new mongoose.Schema({
 proposalSchema.index({ startTime: 1, endTime: 1 });
 proposalSchema.index({ closed: 1 });
 proposalSchema.index({ createdBy: 1 });
+
+// Compound unique index: same proposal ID can exist for different contracts
+proposalSchema.index(
+  { contractAddress: 1, contractProposalId: 1 },
+  { unique: true, sparse: true }
+);
 
 // Virtual: check if proposal is currently active
 proposalSchema.virtual('isActive').get(function() {
