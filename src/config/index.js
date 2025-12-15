@@ -70,7 +70,7 @@ const config = {
     verifyingContractAddressInputVerification: process.env.VERIFYING_CONTRACT_ADDRESS_INPUT_VERIFICATION || '0x483b9dE06E4E4C7D35CCf5837A1668487406D955',
 
     // Deployed Privote contract address (must be set after deployment)
-    votingContractAddress: process.env.VOTING_CONTRACT_ADDRESS
+    votingContractAddress: process.env.VOTING_CONTRACT_ADDRESS?.trim()
   },
 
   // Optional integrations

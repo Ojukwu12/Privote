@@ -42,9 +42,9 @@ async function checkContractProposals() {
         return;
       }
 
-      // Check each proposal
+      // Check each proposal (1-indexed!)
       console.log('2. Checking existing proposals...\n');
-      for (let i = 0; i < count; i++) {
+      for (let i = 1; i <= count; i++) {
         try {
           const proposal = await contract.proposals(i);
           console.log(`   Proposal ${i}:`);
@@ -52,8 +52,7 @@ async function checkContractProposals() {
           console.log(`   - Start: ${new Date(Number(proposal.startTime) * 1000).toISOString()}`);
           console.log(`   - End: ${new Date(Number(proposal.endTime) * 1000).toISOString()}`);
           console.log(`   - Closed: ${proposal.closed}`);
-          console.log(`   - Yes votes: ${proposal.yesVotes.toString()}`);
-          console.log(`   - No votes: ${proposal.noVotes.toString()}`);
+          console.log(`   - Vote count: ${proposal.voteCount.toString()}`);
           console.log('');
         } catch (err) {
           console.log(`   ❌ Failed to read proposal ${i}: ${err.message}\n`);
