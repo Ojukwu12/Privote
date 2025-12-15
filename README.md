@@ -59,9 +59,9 @@ Then visit: `http://localhost:3000/api/health`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                          FRONTEND                               │
+│                       CLIENT APPLICATION                        │
 │  - User encrypts vote with FHE (fhevmjs)                        │
-│  - Submits encrypted vote + proof to backend                    │
+│  - Submits encrypted vote + proof to backend API                │
 │  - Decrypts tally locally after reveal                          │
 └────────────────────┬────────────────────────────────────────────┘
                      │ HTTPS + JWT
@@ -449,58 +449,6 @@ curl -X POST http://localhost:3000/api/votes/submit \
 ```
 
 See [docs/API.md](docs/API.md) for complete endpoint list and examples.
-
----
-
-## Frontend Integration
-
-### Key Steps
-
-1. **Install fhevmjs**:
-   ```bash
-   npm install fhevmjs
-   ```
-
-2. **Initialize FHEVM instance**:
-   ```javascript
-   import { createFhevmInstance } from 'fhevmjs';
-   
-   const fhevmInstance = await createFhevmInstance({
-     chainId: 11155111,
-     publicKey: proposalCreatorPublicKey,
-     gatewayUrl: 'https://gateway.testnet.zama.org',
-     aclAddress: '0xC1820b6Eb60f448E6c44d3A8f36EC6D5fCc76754'
-   });
-   ```
-
-3. **Encrypt vote**:
-   ```javascript
-   const encryptedInput = fhevmInstance.createEncryptedInput(
-     votingContractAddress,
-     userWalletAddress
-   );
-   encryptedInput.add64(1); // Vote value
-   const { handles, inputProof } = encryptedInput.encrypt();
-   ```
-
-4. **Submit to backend**:
-   ```javascript
-   const response = await fetch('http://localhost:3000/api/votes/submit', {
-     method: 'POST',
-     headers: {
-       'Content-Type': 'application/json',
-       'Authorization': `Bearer ${authToken}`
-     },
-     body: JSON.stringify({
-       proposalId: proposalId,
-       encryptedVote: handles[0],
-       inputProof: inputProof,
-       idempotencyKey: `vote-${userId}-${proposalId}`
-     })
-   });
-   ```
-
-**Full frontend guide**: [API.md - Frontend Integration](docs/API.md#frontend-integration-guide)
 
 ---
 
