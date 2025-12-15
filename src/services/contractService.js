@@ -138,7 +138,30 @@ class ContractService {
       }
 
       // Convert first handle to bytes32 for contract
-      const voteHandle = handles[0];
+      let voteHandle = handles[0];
+      
+      logger.info('Vote handle before processing', {
+        type: typeof voteHandle,
+        isArray: Array.isArray(voteHandle),
+        isUint8Array: voteHandle instanceof Uint8Array,
+        length: voteHandle.length || (voteHandle && Object.keys(voteHandle).length)
+      });
+      
+      // Handle case where SDK returns Uint8Array or buffer-like object
+      if (voteHandle instanceof Uint8Array || (typeof voteHandle === 'object' && typeof voteHandle[0] === 'number')) {
+        // Convert Uint8Array or array-like object to hex string
+        const bytes = Array.from(voteHandle);
+        voteHandle = '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+      } else if (typeof voteHandle === 'object' && voteHandle !== null) {
+        // Try to extract hex string from object properties
+        voteHandle = voteHandle.data || voteHandle.handle || voteHandle.hex || voteHandle.value;
+      }
+      
+      // Convert to string if needed
+      voteHandle = String(voteHandle);
+      
+      logger.info('Vote handle after extraction', { voteHandle: voteHandle.substring(0, 66) });
+      
       if (!voteHandle || !voteHandle.startsWith('0x')) {
         throw new CustomError('Invalid encrypted vote handle', 400);
       }

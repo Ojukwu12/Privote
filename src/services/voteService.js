@@ -209,7 +209,17 @@ class VoteService {
         // Default to 1 (yes) for now; ideally, client should pass this
         inputBuffer.add64(BigInt(1));
 
-        const encrypted = await relayerService.encryptInput(inputBuffer);
+        logger.info('Calling relayer SDK to encrypt input (this may take 10-30 seconds)...');
+        
+        // Add timeout to encryptInput call (60 second timeout)
+        const encryptPromise = relayerService.encryptInput(inputBuffer);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Relayer encryptInput timed out after 60 seconds')), 60000)
+        );
+        
+        const encrypted = await Promise.race([encryptPromise, timeoutPromise]);
+        logger.info('Relayer SDK encryption completed');
+        
         handles = encrypted.handles;
 
         if (!handles || handles.length === 0) {
